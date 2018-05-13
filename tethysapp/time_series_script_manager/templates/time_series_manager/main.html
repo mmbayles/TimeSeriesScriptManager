@@ -1,0 +1,106 @@
+{% extends "time_series_manager/base.html" %}
+{% load tethys_gizmos %}
+{% load staticfiles %}
+
+{% block header_buttons %}
+<div class="header-button glyphicon-button" data-toggle="tooltip" data-placement="bottom" title="Help">
+    <a data-toggle="modal" data-target="#help-modal"><span class="glyphicon glyphicon-question-sign"></span></a>
+</div>
+{% endblock %}
+{% block app_navigation_items %}
+<p></p>
+<div class="form-group">
+    <h6 for="sel1">Choose a Script:</h6>
+    <select class="form-control" id="sel1"></select>
+</div>
+<hr>
+<h6>Description:</h6>
+<div id = "scriptDescription"></div>
+<hr>
+<h6>Required Variables:</h6>
+<div id = "scriptVar"></div>
+<hr>
+<div id = "divViewScript"></div>
+<!--<button type="button" class="btn btn-info "  data-toggle="modal" data-target="#help-modal" style="float: left; position:relative">-->
+<!--<span id = 'get_data_span' data-toggle="tooltip" data-placement="bottom" title = "Get Data for New Selection" class="glyphicon glyphicon-question-sign"></span>-->
+<!--</button>-->
+
+<button type="button" class="btn btn-info" style="float: left; position:relative" onclick="uploadToGoogle()">
+    Launch with Google Colaboratory
+</button>
+
+{% endblock %}
+
+{% block app_content %}
+<div id = "stat_div" >
+    <h3>List of available data to package with script</h3>
+    <table id="data_table" class="display" cellspacing="0" width="100%" style="">
+        <thead>
+        <tr>
+            <!--<th> <div style='text-align:center'><input class = 'checkbox' id ='master_chk' name ='master_chk' data-resid =" + res_id-->
+            <!--+ " type='checkbox' onClick ='series_visiblity_toggle(this.id,this.name);'checked = 'checked'></div></th>-->
+            <th>Please assign variable to script</th>
+            <th>Organization</th>
+            <th>Site Name</th>
+            <th>Variable</th>
+            <th>Variable Unit</th>
+            <th>Quality Control</th>
+            <th>Value Count</th>
+        </tr>
+        </thead>
+        <tfoot><tr>
+            <th> </th>
+            <th>Organization</th>
+            <th>Site Name</th>
+            <th>Variable</th>
+            <th>Variable Unit</th>
+            <th>Quality Control</th>
+            <th>Value Count</th>
+        </tr></tfoot>
+    </table>
+</div>
+
+<!--Add buttons to initiate auth sequence and sign out-->
+
+
+{% endblock %}
+
+{# Use the after_app_content block for modals #}
+{% block after_app_content %}
+<!-- Example Modal -->
+<div class="modal fade" id="help-modal" tabindex="-1" role="dialog" aria-labelledby="help-modal-label">
+    <div class="modal-dialog" style="width:80%;" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <h5 class="modal-title" id="help-modal-label"></h5>
+            </div>
+            <div class="modal-body">
+                <pre id="scriptViewer"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block app_actions %}
+
+{% endblock %}
+{% block scripts %}
+{{ block.super }}
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <!--<script src="{% static 'time_series_script_manager/js/google_api.js' %}" type="text/javascript"></script>-->
+    <script src="{% static 'time_series_script_manager/js/main.js' %}" type="text/javascript"></script>
+    <script src="https://cdn.datatables.net/1.10.10/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.4.2/js/buttons.print.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/moment.js"></script>
+    <script src="https://cdn.datatables.net/plug-ins/1.10.16/api/column().title().js"></script>
+
+
+{% endblock %}
