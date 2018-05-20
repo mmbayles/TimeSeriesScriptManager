@@ -44,6 +44,16 @@ class TimeSeriesScriptManager(TethysAppBase):
                 url='view_script',
                 controller='time_series_script_manager.controllers.view_script'
             ),
+            UrlMap(
+                name='upload_hydroshare',
+                url='upload_hydroshare',
+                controller='time_series_script_manager.controllers.upload_hydroshare'
+            ),
+            UrlMap(
+                name='get_hydroshare_list',
+                url='get_hydroshare_list',
+                controller='time_series_script_manager.controllers.get_hydroshare_list'
+            ),
         )
 
         return url_maps

@@ -10,7 +10,7 @@ app_class = 'time_series_manager.app:TimeSeriesScriptManager'
 app_package_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tethysapp', app_package)
 
 ### Python Dependencies ###
-dependencies = ['hs_restclient', 'lxml', 'ciso8601', 'requests']
+dependencies = ['hs_restclient', 'lxml', 'ciso8601', 'requests', 'urllib2', 'netCDF4']
 
 setup(
     name=release_package,

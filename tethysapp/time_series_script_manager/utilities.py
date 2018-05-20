@@ -12,6 +12,16 @@ from hs_restclient import HydroShare, HydroShareAuthOAuth2, \
 from django.conf import settings
 import json
 import re
+from suds.transport import TransportError
+from suds.client import Client
+import urllib2
+import collections
+import math
+import numpy
+import sqlite3
+from time import mktime as mktime
+
+from netCDF4 import Dataset
 
 
 def get_workspace():
@@ -86,91 +96,65 @@ def get_list_hs_scripts(request):
     return script_meta
 
 
-def unzip_waterml(request, res_id, src):
+def unzip_waterml(request, res_id, src, subseries=None):
     temp_dir = get_workspace()
     file_type = None
+    data_for_chart = []
     error = ''
+
     if 'hydroshare' in src:
         hs = getOAuthHS(request)
         file_path_id = get_workspace()
-        status = 'running'
-        delay = 0
-        while status == 'running' or delay < 10:
-            if delay > 15:
-                error = 'Request timed out. ' + error
-                break
-            elif status == 'done':
-                error = ''
-                break
-            else:
-                try:
-                    hs.getResource(res_id, destination=file_path_id,
-                                   unzip=True)
-                    status = 'done'
-                except HydroShareNotAuthorized as e:
-                    print e
-
-                    error = 'Current user does not have permission to view this resource'
-                    # error = str(e)
-                    break
-                except HydroShareNotFound as e:
-                    print "Resource not found"
-                    error = 'Resource was not found. Please try again in a few moments'
-                    # error = str(e)
-                    time.sleep(2)
-                    delay = delay + 1
-
-                except Exception as e:
-                    print e
-                    print type(e).__name__
-                    print e.__class__.__name__
-                    error = str(e)
-                    status = 'running'
-                    time.sleep(2)
-                    delay = delay + 1
-
-        if error == '':
-            try:
-                root_dir = file_path_id + '/' + res_id
-                data_dir = root_dir + '/' + res_id + '/data/contents/'
-                for subdir, dirs, files in os.walk(root_dir):
-                    for file in files:
-                        path = data_dir + file
-                        if 'wml_1_' in file:
-                            file_type = 'waterml'
-                            with open(path, 'r') as f:
-                                file_data = f.read()
-                                f.close()
-                                # file_path = temp_dir + '/id/' + res_id + '.xml'
-                                file_path = temp_dir + res_id + '.xml'
-                                file_temp = open(file_path, 'wb')
-                                file_temp.write(file_data)
-                        elif '.py' in file:
-                            file_type = 'python'
-                            with open(path, 'r') as f:
-                                file_data = f.read()
-
-                        #         file_temp.close()
-                        # elif '.refts.json' in file:
-                        #     file_type = '.json.refts'
-                        #     file_number = parse_ts_layer(path)
-                        # elif '.sqlite' in file:
-                        #     file_path = path
-                        #     file_type = 'sqlite'
-                        # elif file.endswith('.nc'):
-                        #     file_path = path
-                        #     file_type='netcdf'
-                if file_type == None:
-                    error = "No supported file type found for resource "+res_id+". This app supports resource types of HIS " \
-                            "Referenced Time Series, Time Series, and Collection with file extension .refts.json"
-            except Exception as e:
-                error = str(e)
+        try:
+            hs.getResource(res_id, destination=file_path_id,
+                           unzip=True)
+            # root_dir = file_path_id + '/' + res_id
+            root_dir = os.path.join(file_path_id,res_id)
+            data_dir = root_dir + '/' + res_id + '/data/contents/'
+            for subdir, dirs, files in os.walk(root_dir):
+                for file in files:
+                    path = data_dir + file
+                    if 'wml_1_' in file:
+                        file_type = 'waterml'
+                        with open(path, 'r') as f:
+                            file_data = f.read()
+                            f.close()
+                            # file_path = temp_dir + '/id/' + res_id + '.xml'
+                            file_path = temp_dir + res_id + '.xml'
+                            file_temp = open(file_path, 'wb')
+                            file_temp.write(file_data)
+                    elif '.refts.json' in file:
+                        file_type = '.json.refts'
+                        file_number = parse_ts_layer(path)
+                        print 'refts'
+                        print file_number
+                    elif '.sqlite' in file:
+                        file_path = path
+                        file_type = 'sqlite'
+                    elif file.endswith('.nc'):
+                        file_path = path
+                        file_type='netcdf'
+            if file_type is None:
+                error = "No supported file type found for resource " + res_id + ". This app supports resource " \
+                        "types of HIS Referenced Time Series, Time Series, and Collection with file extension" \
+                                                                                " .refts.json"
+        except HydroShareNotAuthorized as e:
+            print e
+            error = 'Current user does not have permission to view this resource'
+            # error = str(e)
+        except HydroShareNotFound as e:
+            print "Resource not found"
+            error = 'Resource was not found. Please try again in a few moments'
+            # error = str(e)
+        except Exception as e:
+            print e
+            error = str(e)
 
     elif src == 'cuahsi':
         # get the URL of the remote zipped WaterML resource
         file_type = 'waterml'
         app_host =request.META['HTTP_HOST']
-        if 'appsdev.hydroshare' in app_host:
+        if 'hs-apps-dev.hydroshare' in app_host:
             url_zip = 'http://qa-hiswebclient.azurewebsites.net/CUAHSI/HydroClient/WaterOneFlowArchive/' + res_id + '/zip'
         else:
             url_zip = 'http://data.cuahsi.org/CUAHSI/HydroClient/WaterOneFlowArchive/' + res_id + '/zip'
@@ -181,7 +165,8 @@ def unzip_waterml(request, res_id, src):
             try:
                 for file in file_list:
                     file_data = z.read(file)
-                    file_path = temp_dir + '/' + res_id + '.xml'
+                    file_path = os.path.join(temp_dir, res_id+'.xml')
+                    # file_path = temp_dir + '/' + res_id + '.xml'
                     with open(file_path, 'wb') as f:
                         f.write(file_data)
             # error handling
@@ -206,106 +191,82 @@ def unzip_waterml(request, res_id, src):
             print error
             error = str(e)
 
-
-def get_hydro_resource(request, res_id):
-    print 'getting hydroresource'
-    temp_dir = get_workspace()
-    hs = getOAuthHS(request)
-    status = 'running'
-    delay = 0
-    file_meta = []
-    while status == 'running' or delay < 10:
-        if delay > 15:
-            error = 'Request timed out. ' + error
-            break
-        elif status == 'done':
-            error = ''
-            break
-        else:
-            try:
-                hs.getResource(res_id, destination=temp_dir,
-                               unzip=True)
-                status = 'done'
-            except HydroShareNotAuthorized as e:
-                print e
-
-                error = 'Current user does not have permission to view this resource'
-                # error = str(e)
-                break
-            except HydroShareNotFound as e:
-                print "Resource not found"
-                error = 'Resource was not found. Please try again in a few moments'
-                # error = str(e)
-                time.sleep(2)
-                delay = delay + 1
-
-            except Exception as e:
-                print e
-                print type(e).__name__
-                print e.__class__.__name__
-                error = str(e)
-                status = 'running'
-                time.sleep(2)
-                delay = delay + 1
-
     if error == '':
-        root_dir = temp_dir + '/' + res_id
-        data_dir = temp_dir + '/' + res_id + '/' + res_id + '/data/contents/'
-        for subdir, dirs, files in os.walk(root_dir):
-            for file in files:
-                path = data_dir + file
-                if 'wml_1_' in file:
-                    file_type = 'waterml'
-                    with open(path, 'r') as f:
-                        file_data = f.read()
-                        f.close()
-                        # file_path = temp_dir + '/id/' + res_id + '.xml'
-                        file_path = temp_dir + res_id + '.xml'
-                        file_temp = open(file_path, 'wb')
-                        file_temp.write(file_data)
-                        file_temp.close()
-                elif '.refts.json' in file:
-                    file_type = '.json.refts'
-                elif '.sqlite' in file:
-                    file_path = path
-                    file_type = 'sqlite'
-                elif file.endswith('.nc'):
-                    file_path = path
-                    file_type = 'netcdf'
-                elif file.endswith('.ipynb'):
-                    file_path = path
-                    file_type ='python'
-                    return [file_path,file]
-                    # file_meta.append({'file_type':file_type,'file_path':file_path})
+        if file_type == 'waterml':
+            # file_path = utilities.waterml_file_path(res_id,xml_id)
+            chart_data = parse_1_0_and_1_1(file_path, res_id, 1)
+            data_for_chart.append(chart_data[0])
+            error = chart_data[1]
+        elif file_type == '.json.refts':
+            for i in range(0, file_number):
+                # file_path = temp_dir+'/id/timeserieslayer'+str(i)+'.xml'
+                file_path = temp_dir + '/timeserieslayer' + str(i) + '.xml'
+                if subseries is not None:
 
-    # return file_meta
+                    if float(subseries) == i+1:
+                        chart_data = parse_1_0_and_1_1(file_path, res_id, i + 1)
+                        data_for_chart.append(chart_data[0])
+                        error = chart_data[1]
+                else:
+                    chart_data = parse_1_0_and_1_1(file_path, res_id, i+1)
+                    data_for_chart.append(chart_data[0])
+                    error = chart_data[1]
+        elif file_type == 'sqlite':
+            print "sqliteeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            conn = sqlite3.connect(file_path)
+            c = conn.cursor()
+            c.execute('SELECT Results.ResultID FROM Results')
+            num_series = c.fetchall()
+            conn.close()
+            for series in num_series:
+                if subseries is not None:
 
-def get_resource_location(res_id):
-    temp_dir = get_workspace()
+                    if float(subseries) == series[0]:
+                        str_series = str(series[0])
+                        data_for_chart.append(parse_odm2(file_path, str_series, res_id)[0])
+                else:
+                    str_series = str(series[0])
+                    data_for_chart.append(parse_odm2(file_path, str_series, res_id)[0])
+        elif file_type == 'netcdf':
+            subseries_counter = 1
+            dates = []
+            dataset = Dataset(file_path)
+            try:
+                feature_id = dataset.variables['feature_id']
+                master_times = collections.OrderedDict()
+                dic = 'aaaa'
+                master_times.update({dic: []})
+                # feature_id = dataset.variables['feature_id']
+                dates1 = dataset.variables['time'][:]
+                for ele in dates1:
+                    n = float(ele)
+                    n = n * 60  # time is is minutes not seconds
+                    dates.append(n)
+                for index, id in enumerate(feature_id):
 
-    for subdir, dirs, files in os.walk(temp_dir):
-        for file in files:
-            path = temp_dir +'/'+ file
-            if res_id in file:
-                return path
+                        variable = dataset.variables.keys()
+                        for sub_var in variable:
+                            sub_var_check = sub_var.encode('utf8')
 
-def parse_waterml(res_id):
-    temp_dir = get_workspace()
-    # file_path = temp_dir + '/Test_Resource/cuahsi_gapfill.py'
-    # print file_path
-    # with open(file_path, 'r') as f:
-    #     file_data = f.read()
-    #     print "!!!!!!!!!!!"
-    #     print file_data
+                            if 'streamflow' in sub_var_check or 'velocity' in sub_var_check:
+                                if subseries is not None:
+                                    if float(subseries) == subseries_counter:
+                                        chart_data = parse_netcdf(index, id,
+                                                                  dataset.variables[sub_var],
+                                                                  res_id, subseries_counter,dates)
+                                        data_for_chart.append(chart_data[0])
 
-    file_path = temp_dir + '/'+res_id+'.xml'
-    # print file_path
-    # with open(file_path, 'r') as f:
-    #     file_data = f.read()
-    #     print "!!!!!!!!!!!"
-    #     print trim(file_data)
+                                else:
+                                    chart_data = parse_netcdf(index, id,
+                                                              dataset.variables[sub_var],
+                                                              res_id, subseries_counter, dates)
+                                    data_for_chart.append(chart_data[0])
+                                    error = chart_data[1]
+                                subseries_counter = subseries_counter +1
 
-    return parse_1_0_and_1_1(file_path,res_id)
+            except:
+                error = "Not a valid channel forcing file"
+    return data_for_chart
 
 
 def getOAuthHS(request):
@@ -322,7 +283,7 @@ def getOAuthHS(request):
     return hs
 
 
-def parse_1_0_and_1_1(xml_file_path,res_id):
+def parse_1_0_and_1_1(xml_file_path, res_id, subseries):
     """
     Get version of waterml file
 
@@ -409,7 +370,7 @@ def parse_1_0_and_1_1(xml_file_path,res_id):
                         values.append(v)
 
             error = ''
-            return {
+            return [{
                 'organization': organization,
                 'site_name': site_name,
                 'variable_name': variable_name,
@@ -418,8 +379,10 @@ def parse_1_0_and_1_1(xml_file_path,res_id):
                 'values': values,
                 'dates': dates,
                 'res_id':res_id,
-                'error': error
-            }
+                'error': error,
+                'subseries': subseries
+            },
+            error]
         else:
             parse_error = "Parsing error: The WaterML document doesn't appear to be a WaterML 1.0/1.1 time series"
             # error_report(
@@ -435,7 +398,7 @@ def parse_1_0_and_1_1(xml_file_path,res_id):
         exc_type, exc_obj, exc_tb = sys.exc_info()
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
-        return [None,data_error]
+        return [None, data_error]
 
 
 def ipynb_formatter(data):
@@ -452,3 +415,328 @@ def ipynb_formatter(data):
                 text = text+'\n'
         text = text + '\n'
     return text
+
+
+def upload_data_hydroshare(request, file_data, title, abstract, keywords):
+    file_path = os.path.join(get_user_workspace(request), file_data.name)
+    file_text = file_data.read()
+    with open(file_path, 'wb') as f:
+        f.write(file_text)
+        print file_text
+    hs = getOAuthHS(request)
+    abstract = abstract
+    title = title
+    keywords = keywords
+    rtype = 'CompositeResource'
+    fpath = file_path
+    # metadata = '[{"coverage":{"type":"period", "value":{"start":"01/01/2000", "end":"12/12/2010"}}}, {"creator":{"name":"John Smith"}}, {"creator":{"name":"Lisa Miller"}}]'
+    extra_metadata = '{"Time Series Script Manager": "True"}'
+    resource_id = hs.createResource(rtype, title,resource_filename=file_data.name, resource_file=fpath, keywords=keywords, abstract=abstract,
+                                    extra_metadata=extra_metadata)
+    print resource_id
+
+
+def parse_odm2(file_path, result_num,res_id):
+
+    site_name = None
+    variable_name = None
+    units = None
+    organization = None
+    quality = None
+
+    values = []
+    dates = []
+    nodatavalue = None
+    conn = sqlite3.connect(file_path)
+    c = conn.cursor()
+    c.execute(
+        'SELECT Variables.VariableNameCV,Units.UnitsName,'
+        'Results.SampledMediumCV,Variables.NoDataValue '
+        'FROM Results,Variables,Units '
+        'WHERE Results.ResultID=' + result_num + ' '
+         'AND Results.UnitsID = Units.UnitsID AND Results.VariableID = Variables.VariableID')
+    var_unit = c.fetchall()
+    for unit in var_unit:
+        variable_name = unit[0]
+        units = unit[1]
+        samplemedium = unit[2]
+        nodatavalue = unit[3]
+    c.execute(
+        'SELECT  TimeSeriesResults.IntendedTimeSpacing, Units.UnitsName,TimeSeriesResults.AggregationStatisticCV '
+        'FROM TimeSeriesResults, Units '
+        'WHERE TimeSeriesResults.ResultID =' + result_num + ' '
+        'AND TimeSeriesResults.IntendedTimeSpacingUnitsID = Units.UnitsID')
+    time_support = c.fetchall()
+    for time in time_support:
+        timeunit = time[1]
+
+        timesupport = time[0]
+        datatype = time[2]
+    c.execute(
+        'SELECT Results.ResultID,Methods.MethodID,Methods.MethodName, '
+        'SamplingFeatures.SamplingFeatureName,Actions.ActionTypeCV '
+        'FROM Results,FeatureActions,Actions,Methods, SamplingFeatures ' +
+        'WHERE Results.ResultID=' + result_num + ' '
+                                                 'AND Results.FeatureActionID=FeatureActions.FeatureActionID ' +
+        'AND ((FeatureActions.ActionID=Actions.ActionID '
+        'AND Actions.MethodID=Methods.MethodID) OR'
+        '(FeatureActions.SamplingFeatureID = SamplingFeatures.SamplingFeatureID)) ')
+    methods = c.fetchall()  # Returns Result id method id and method description for each result
+    # Quality Control
+    c.execute(
+        'SELECT ProcessingLevels.ProcessingLevelCode, ProcessingLevels.Explanation, ProcessingLevels.Definition '
+        'FROM Results, ProcessingLevels ' +
+        'WHERE Results.ResultID=' + result_num + ' '
+                                                 'AND Results.ProcessingLevelID = ProcessingLevels.ProcessingLevelID')
+    qualityControl = c.fetchall()
+
+    c.execute(
+        'SELECT Organizations.OrganizationID,Organizations.OrganizationName,Organizations.OrganizationName '
+        'FROM Organizations,Affiliations,ActionBy,Actions,FeatureActions,Results ' +
+        'WHERE Results.ResultID=' + result_num + ' '
+                                                 'AND Results.FeatureActionID=FeatureActions.FeatureActionID ' +
+        'AND FeatureActions.ActionID=Actions.ActionID ' +
+        'AND Actions.ActionID=ActionBy.ActionID ' +
+        'AND ActionBy.AffiliationID = Affiliations.AffiliationID ' +
+        'AND Affiliations.OrganizationID = Organizations.OrganizationID ')
+
+    # c.execute('Select *')
+    organizations = c.fetchall()
+
+    c.execute(
+        'SELECT ResultID,ValueDateTime,DataValue FROM TimeSeriesResultValues')
+    data = c.fetchall()
+    for ele in data:
+        subres_id = ele[0]
+        if int(result_num) == subres_id:
+            v = ele[2]
+            n = ele[1]
+            n = ciso8601.parse_datetime(str(n))
+            n = n.timetuple()
+            n = mktime(n)
+            # if v == nodata:
+            if v == nodatavalue:
+                v = None
+            else:
+                v = float(v)
+            values.append(v)
+            dates.append(n)
+
+    error = ''
+    print "!!!!!!!!!!!!!!!!!!!!!!!!"
+    print organizations[0]
+    print organizations[0][1]
+    conn.close()
+    return [{
+        'organization': organizations[0][1],
+        'site_name': methods[0][3],
+        'variable_name': variable_name,
+        'units': units,
+        'quality': qualityControl[0][0],
+        'values': values,
+        'dates': dates,
+        'res_id': res_id,
+        'error': error,
+        'subseries':result_num
+    },
+    error]
+
+
+def parse_ts_layer(path):
+    counter = 0
+    error = ''
+    response = None
+    with open(path, 'r') as f:
+        data = f.read()
+    data = data.encode(encoding='UTF-8')
+    data = data.replace("'", '"')
+    json_data = json.loads(data)
+    json_data = json_data["timeSeriesReferenceFile"]
+    layer = json_data['referencedTimeSeries']
+
+    for sub in layer:
+
+        ref_type = sub['requestInfo']['refType']
+        service_type = sub['requestInfo']['serviceType']
+        url = sub['requestInfo']['url']
+        site_code = sub['site']['siteCode']
+        variable_code = sub['variable']['variableCode']
+        start_date = sub['beginDate']
+        end_date = sub['endDate']
+        auth_token = ''
+        if ref_type == 'WOF':
+            if service_type == 'SOAP':
+                if 'nasa' in url:
+                    headers = {'content-type': 'text/xml'}
+                    body = """<?xml version="1.0" encoding="utf-8"?>
+                        <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                          <soap:Body>
+                            <GetValuesObject xmlns="http://www.cuahsi.org/his/1.0/ws/">
+                              <location>""" + site_code + """</location>
+                              <variable>""" + variable_code + """</variable>
+                              <startDate>""" + start_date + """</startDate>
+                              <endDate>""" + end_date + """</endDate>
+                              <authToken></authToken>
+                            </GetValuesObject>
+                          </soap:Body>
+                        </soap:Envelope>"""
+                    body = body.encode('utf-8')
+                    response = requests.post(url, data=body, headers=headers)
+                    response = response.content
+                else:
+                    client = connect_wsdl_url(url)
+                    try:
+                        response = client.service.GetValues(site_code,
+                                                            variable_code,
+                                                            start_date,
+                                                            end_date,
+                                                            auth_token)
+                    except:
+                        error = "unable to connect to HydroSever"
+                        print error
+                temp_dir = get_workspace()
+                file_path = temp_dir + '/timeserieslayer' + str(counter) + '.xml'
+                try:
+                    response = response.encode('utf-8')
+                except:
+                    response = response
+                with open(file_path, 'w') as outfile:
+                    outfile.write(response)
+            if (service_type == 'REST'):
+                waterml_url = url + '/GetValueObject'
+                response = urllib2.urlopen(waterml_url)
+                html = response.read()
+            counter = counter + 1
+    return counter
+
+
+def connect_wsdl_url(wsdl_url):
+    try:
+        client = Client(wsdl_url)
+    except TransportError:
+        raise Exception('Url not found')
+    except ValueError:
+        raise Exception(
+            'Invalid url')  # ought to be a 400, but no page implemented for that
+    except:
+        raise Exception("Unexpected error")
+    return client
+
+
+def parse_netcdf(index, id, dataset,res_id,subseries,dates):
+    values = []
+    site_name = str(id)
+    units = dataset.units
+    nodatavalue = dataset.missing_value
+    variable_name = dataset.long_name
+    data = dataset[:]
+    for ele in data:
+        try:
+            v = ele[index]
+        except:
+            v = ele
+        if v == '--':
+            v = None
+        else:
+            try:
+                val_float = float(v)
+                if val_float == float(nodatavalue):
+                    v = None
+                elif math.isnan(val_float):
+                    v = None
+                else:
+                    v = val_float
+            except:
+                v = None
+                # records only none null values for running statistics
+        values.append(v)
+
+    error = ''
+
+    return [{
+        'organization': 'NOAA',
+        'site_name': site_name,
+        'variable_name': variable_name,
+        'units': units,
+        'quality': 'Derived products',
+        'values': values,
+        'dates': dates,
+        'res_id': res_id,
+        'error': error,
+        'subseries':subseries
+    },
+            error]
+
+
+def get_hydro_resource(request, res_id):
+    print 'getting hydroresource'
+    temp_dir = get_workspace()
+    hs = getOAuthHS(request)
+    status = 'running'
+    delay = 0
+    file_meta = []
+    while status == 'running' or delay < 10:
+        if delay > 15:
+            error = 'Request timed out. ' + error
+            break
+        elif status == 'done':
+            error = ''
+            break
+        else:
+            try:
+                hs.getResource(res_id, destination=temp_dir,
+                               unzip=True)
+                status = 'done'
+            except HydroShareNotAuthorized as e:
+                print e
+
+                error = 'Current user does not have permission to view this resource'
+                # error = str(e)
+                break
+            except HydroShareNotFound as e:
+                print "Resource not found"
+                error = 'Resource was not found. Please try again in a few moments'
+                # error = str(e)
+                time.sleep(2)
+                delay = delay + 1
+
+            except Exception as e:
+                print e
+                print type(e).__name__
+                print e.__class__.__name__
+                error = str(e)
+                status = 'running'
+                time.sleep(2)
+                delay = delay + 1
+
+    if error == '':
+        root_dir = temp_dir + '/' + res_id
+        data_dir = temp_dir + '/' + res_id + '/' + res_id + '/data/contents/'
+        for subdir, dirs, files in os.walk(root_dir):
+            for file in files:
+                path = data_dir + file
+                if 'wml_1_' in file:
+                    file_type = 'waterml'
+                    with open(path, 'r') as f:
+                        file_data = f.read()
+                        f.close()
+                        # file_path = temp_dir + '/id/' + res_id + '.xml'
+                        file_path = temp_dir + res_id + '.xml'
+                        file_temp = open(file_path, 'wb')
+                        file_temp.write(file_data)
+                        file_temp.close()
+                elif '.refts.json' in file:
+                    file_type = '.json.refts'
+                elif '.sqlite' in file:
+                    file_path = path
+                    file_type = 'sqlite'
+                elif file.endswith('.nc'):
+                    file_path = path
+                    file_type = 'netcdf'
+                elif file.endswith('.ipynb'):
+                    file_path = path
+                    file_type ='python'
+                    return [file_path,file]
+                    # file_meta.append({'file_type':file_type,'file_path':file_path})
+
+    # return file_meta
