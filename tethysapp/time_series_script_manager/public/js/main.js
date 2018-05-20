@@ -1,9 +1,7 @@
 var number = 0;
-// var CLIENT_ID = '289897672263-nba5onfn04b7k36u620i2ipthtnq8hds.apps.googleusercontent.com';
-var CLIENT_ID = '289897672263-9t2rqp7l3llo9oggach2sgu7idr3iqt1.apps.googleusercontent.com';
+var CLIENT_ID = '289897672263-nba5onfn04b7k36u620i2ipthtnq8hds.apps.googleusercontent.com';
+var API_KEY = 'AIzaSyB96S1nc9Rr0vEVXDsfYE9_hfWOLmMsueA';
 
-// var API_KEY = 'AIzaSyB96S1nc9Rr0vEVXDsfYE9_hfWOLmMsueA';
-var API_KEY = 'AIzaSyAutdvQuacRMlAUeVGueeEOSi9d1_A2kUI';
 var DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
 var SCOPES = 'https://www.googleapis.com/auth/drive.metadata.readonly https://www.googleapis.com/auth/drive.file';
 $(document).ready(function () {
