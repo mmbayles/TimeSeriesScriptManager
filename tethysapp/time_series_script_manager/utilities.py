@@ -73,7 +73,7 @@ def get_list_hs_scripts(request):
         # re_num = re_num.search(abstract_txt)
         # re_vars = re_vars.search(abstract_txt)
         # print re_vars.group(2)
-        script_para = re.findall('#{%(.*)%(.*)}',abstract_txt)
+        script_para = re.findall('#{%(.*)%(.*)}', abstract_txt)
         title = None
         description = None
         variables = []
@@ -82,10 +82,10 @@ def get_list_hs_scripts(request):
                 title = para[1].strip()
             elif 'Description' in para[0]:
                 description = para[1].strip()
-            elif 'Application'in para[0]:
+            elif 'Time Series Script Manager'in para[0]:
                 continue
             else:
-                variables.append([para[0].strip(),para[1].strip()])
+                variables.append([para[0].strip(), para[1].strip()])
 
         script_meta.append({
             'script_name': title,
@@ -418,8 +418,12 @@ def ipynb_formatter(data):
 
 
 def upload_data_hydroshare(request, file_data, title, abstract, keywords):
-    file_path = os.path.join(get_user_workspace(request), file_data.name)
+    file_name = str(file_data.name)
+    file_path = os.path.join(get_user_workspace(request), file_name)
+    file_path = file_path.encode(encoding='UTF-8')
+
     file_text = file_data.read()
+
     with open(file_path, 'wb') as f:
         f.write(file_text)
         print file_text
@@ -428,13 +432,24 @@ def upload_data_hydroshare(request, file_data, title, abstract, keywords):
     title = title
     keywords = keywords
     rtype = 'CompositeResource'
-    fpath = file_path
+    # fpath1 = file_path
+    # fpath = get_user_workspace(request) + '/' + file_name
+    # print fpath
+    # print type(fpath)
+    # print fpath1
+    # print type(fpath1)
+    #
+    # fpath = '/home/matthew/tethys/src/tethys_apps/tethysapp/time_series_script_manager/workspaces/user_workspaces/mbayles2/High_Low_Flow_Script.ipynb'
+    # print fpath
+    # print type(fpath)
+
     # metadata = '[{"coverage":{"type":"period", "value":{"start":"01/01/2000", "end":"12/12/2010"}}}, {"creator":{"name":"John Smith"}}, {"creator":{"name":"Lisa Miller"}}]'
     extra_metadata = '{"Time Series Script Manager": "True"}'
-    resource_id = hs.createResource(rtype, title,resource_filename=file_data.name, resource_file=fpath, keywords=keywords, abstract=abstract,
+    resource_id = hs.createResource(rtype, title, resource_filename=file_data.name, resource_file=file_path, keywords=keywords, abstract=abstract,
                                     extra_metadata=extra_metadata)
     print resource_id
-
+    return resource_id
+    # return "d"
 
 def parse_odm2(file_path, result_num,res_id):
 

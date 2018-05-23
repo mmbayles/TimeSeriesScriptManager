@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 import utilities
+import re
 
 
 @login_required(login_url='/oauth2/login/hydroshare/')
@@ -38,8 +39,9 @@ def parse_data(request):
         print src
         print res_ids
         json_waterml_data = []
-        for res_id in res_ids:
-            json_waterml_data.append(utilities.unzip_waterml(request, res_id, src))
+        if res_ids != "None":
+            for res_id in res_ids:
+                json_waterml_data.append(utilities.unzip_waterml(request, res_id, src))
         script_meta = utilities.get_list_hs_scripts(request)
         login_status = True
     else:
@@ -67,7 +69,7 @@ def upload_google(request):
         script_location = utilities.get_hydro_resource(request, script_id)
         with open(script_location[0]) as f:
             file_data = f.read()
-            for idx, val in enumerate(variable_names):
+            for idx, name in enumerate(variable_names):
                 # val_dates = utilities.parse_waterml(variable_res_ids[idx])
 
                 if 'cuahsi' in variable_res_ids[idx]:
@@ -78,14 +80,23 @@ def upload_google(request):
                 val_dates = utilities.unzip_waterml(request,variable_res_ids[idx],source,variable_sub_num[idx])
                 print val_dates
                 print "VAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                name = name.encode('ascii', 'ignore')
                 val_dates = val_dates[0]
 
+                values_case = re.search(name + '_values', file_data, re.IGNORECASE)
+                dates_case = re.search(name + '_dates', file_data, re.IGNORECASE)
 
-                val1 = val.encode('ascii', 'ignore')
-                # file_data.replace(val+"_values = None", val+"_values = "+val_dates['values'])
-                file_data = file_data.replace(val1+'_values = None', val1+'_values = [%s]' % ', '.join(map(str, val_dates['values'])))
-                # file_data = file_data.replace('TimeSeries1_values', 'Testing 123344444')
-                file_data = file_data.replace(val1+'_dates = None', val1+'_dates = [%s]' % ', '.join(map(str, val_dates['dates'])))
+                file_data = re.sub(name+'_values\s*=(\[(\s*\w,\s*)*\s*\w*\s*])|('+name+'_values\s*=\s*None\s*)',
+                                   values_case.group(0)+' = '+str(val_dates['values']), file_data, 1, re.IGNORECASE)
+
+                file_data = re.sub(name+'_dates\s*=(\[(\s*\w,\s*)*\s*\w*\s*])|('+name+'_dates\s*=\s*None\s*)',
+                                   dates_case.group(0)+' = '+str(val_dates['dates']), file_data, 1, re.IGNORECASE)
+
+
+
+                # file_data = file_data.replace(name+'_values = None', name+'_values = [%s]' % ', '.join(map(str, val_dates['values'])))
+                # file_data = file_data.replace(name+'_dates = None', name+'_dates = [%s]' % ', '.join(map(str, val_dates['dates'])))
+
         user_workspace = utilities.get_user_workspace(request)
         file_path = user_workspace + '/' + script_location[1]
         with open(file_path, 'wb') as f:
@@ -120,16 +131,16 @@ def upload_hydroshare(request):
     keywords = str(request.POST.get('keywords'))
     keywords = keywords.split(',')
     # res_access = str(request.POST.get('resAccess'))
-
+    res_id = None
     files = request.FILES.getlist('files')
     print request.POST.get('fileUpload')
     print title
     # print files.read()
     for file in files:
-        utilities.upload_data_hydroshare(request, file, title, abstract, keywords)
-    #
+        res_id = utilities.upload_data_hydroshare(request, file, title, abstract, keywords)
+
     context = {
-        'scripts': 'success'}
+        'scripts': res_id}
     return JsonResponse(context)
 
 def get_hydroshare_list(request):
@@ -139,7 +150,6 @@ def get_hydroshare_list(request):
     hs = utilities.getOAuthHS(request)
     # resource_types = ['CompositeResource','NetcdfResource','TimeSeriesResource']
     resource_types = ['TimeSeriesResource']
-    # resource_types = ['CompositeResource']
     resource_list = hs.getResourceList(types=resource_types)
     for resource in resource_list:
         # if resource.resource_type ==''
@@ -157,6 +167,24 @@ def get_hydroshare_list(request):
                       update=update,
                       resource_id=hs_res_id)
         hs_list.append(hs_dic)
+    resource_list = hs.getResourceList(full_text_search="#{%Application%Data Series Viewer%}")
+    for resource in resource_list:
+        # if resource.resource_type ==''
+        print resource
+        hs_res_id = resource['resource_id']
+        legend = "<div style='text-align:center'><input class = 'checkbox' name = 'res_hydroshare' id =" + hs_res_id + " type='checkbox'>" + "</div>"
+        title = resource['resource_title']
+        type = resource['resource_type']
+        author = resource['creator']
+        update = resource['date_last_updated']
+        hs_dic = dict(legend=legend,
+                      title=title,
+                      type=type,
+                      author=author,
+                      update=update,
+                      resource_id=hs_res_id)
+        hs_list.append(hs_dic)
+
     hs_response = dict(error='', data=hs_list)
     return JsonResponse(hs_response)
 

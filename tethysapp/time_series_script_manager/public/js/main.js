@@ -9,26 +9,32 @@ $(document).ready(function () {
     console.log("ready");
     handleClientLoad();
     // Handle script selection and display
+    // $("#resAbstract").text("Put a description of your Python Script or Jupyter Notebook here.\n\n\n\n#{%Application% Time Series Script Manager%}\n" +
+    //     "#{%Title% Put the name of your script here}\n" +
+    //     "#{%Description% Put a short description of your script here }\n" +
+    //     "#{%TimeSeries_1% Describe the first time series here }\n" +
+    //     "#{%TimeSeries_2% Describe the second time series here}")
+    // $("#resKeywords").val("Time Series Script Manager, Jupyter Notebook")
     $("#sel1").click(function(){
         $("#scriptVar").text("");
-         var table = $('#data_table').DataTable();
+        var table = $('#data_table').DataTable();
         var table_len = table.page.len();
 
         table.page.len(-1);
         table.draw();
 
         for (var i = 0, len = number; i < len;i++){
-                $("#"+i).html($("<option></option>")
-                    .text("Please Select a Script\n")
-                    .attr("value", "None")
-                );
+            $("#"+i).html($("<option></option>")
+                .text("Please Select a Script\n")
+                .attr("value", "None")
+            );
         }
-            $("#divViewScript").hide()
+        $("#divViewScript").hide()
 
         $("#scriptDescription").text($("#sel1 :selected").attr('description'));
         var scriptVariables = $("#sel1 :selected").attr('variables').split(",");
         if (scriptVariables.length >1) {
-                $("#divViewScript").show()
+            $("#divViewScript").show()
 
             //  $("#divViewScript").html('<button type="button" class="btn btn-info" name="'+ $("#sel1 :selected").attr('res_id')+'"style="float: left; position:relative" onclick="viewScript(this.name)">\n' +
             // 'View Script\n' +
@@ -47,9 +53,57 @@ $(document).ready(function () {
             }
 
         }
-         table.page.len(table_len);
+        table.page.len(table_len);
         table.draw();
     });
+
+    document.getElementById("input-files").onchange = function(e) {
+        var file = document.getElementById("input-files").files[0];
+        if(file.name.indexOf(".ipynb")<0){
+            var e = $("#input-files")
+            displayAlert("hsAlert",'danger',"Please upload a Jupyter Notebook (.ipynb)")
+            // alert("Please upload a Jupyter Notebook (.ipynb)")
+            e.wrap('<form>').closest('form').get(0).reset();
+            e.unwrap();
+        }
+        else{
+            console.log('file uploaded');
+            $("#resTitle").prop("disabled", false);
+            $("#resKeywords").prop("disabled", false);
+            $("#resAbstract").prop("disabled", false);
+            $("#btn-upload-file").prop("disabled", false);
+            var reader = new FileReader();
+
+            reader.readAsText(file, "UTF-8");
+            reader.onload = function (evt) {
+                var pattern = /(\w*)_values\s*=/ig;
+                var target_text = evt.target.result;
+                var counter = 0;
+                $("#resAbstract").text("Put a description of your Python Script or Jupyter Notebook here.\n\n#{%Application% Time Series Script Manager%}\n" +
+                    "#{%Title% "+file.name.split(".")[0]+"}\n" +
+                    "#{%Description% Put a short description of your script here }\n" );
+                var counter = 0
+                do {
+                    m = pattern.exec(target_text);
+                    if (m) {
+                        console.log(m[1]);
+                        counter = counter +1
+                        $("#resAbstract").append("#{%"+m[1]+"% Describe time series "+m[1]+" here}\n")
+                        counter = counter + 1;
+                    }
+                    if(counter > 100){
+                        break;
+                    }
+                } while (m);
+                if(counter==0){
+                    displayAlert("hsAlert",'warning',"No time series variables were dectected. Please insure your Notebook conforms to the standards presented in this application");
+                }
+                $("#resTitle").val(file.name.split(".")[0].replace(/-/g," ").replace(/_/g," "));
+                $("#resKeywords").val("Time Series Script Manager, Jupyter Notebook");
+            }
+        }
+
+    };
 
     $('#data_table').DataTable({
         "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
@@ -58,28 +112,28 @@ $(document).ready(function () {
         "createdRow": function (row, data, dataIndex) {
             var col_counter = 0
             columns =
-            this.api().columns().every( function () {
-                if (col_counter >1){
+                this.api().columns().every( function () {
+                    if (col_counter >1){
 
-                    var column = this;
-                    var select = $('<select style="width: 100% !important;"><option value="" selected >Show All: '+this.title()+'</option></select>')
-                        .appendTo( $(column.footer()).empty() )
-                        .on( 'change', function () {
-                            var val = $.fn.dataTable.util.escapeRegex(
-                                $(this).val()
-                            );
-                            column
-                                .search( val ? '^'+val+'$' : '', true, false )
-                                .draw();
+                        var column = this;
+                        var select = $('<select style="width: 100% !important;"><option value="" selected >Show All: '+this.title()+'</option></select>')
+                            .appendTo( $(column.footer()).empty() )
+                            .on( 'change', function () {
+                                var val = $.fn.dataTable.util.escapeRegex(
+                                    $(this).val()
+                                );
+                                column
+                                    .search( val ? '^'+val+'$' : '', true, false )
+                                    .draw();
+                            } );
+
+                        column.data().unique().sort().each( function ( d, j ) {
+                            select.append( '<option value="'+d+'">'+d+'</option>' )
                         } );
+                    }
 
-                    column.data().unique().sort().each( function ( d, j ) {
-                        select.append( '<option value="'+d+'">'+d+'</option>' )
-                    } );
-                }
-
-                col_counter = col_counter +1
-            } );
+                    col_counter = col_counter +1
+                } );
         },
 
         "columns": [
@@ -95,7 +149,7 @@ $(document).ready(function () {
             {"data": "unit"},
             {"data": "quality"},
             {"data": "count"},
-             {
+            {
                 "name":"viewRes",
                 "className": "viewRes",
                 "data": "resource"
@@ -109,29 +163,29 @@ $(document).ready(function () {
         "createdRow": function (row, data, dataIndex) {
             var col_counter = 0
             columns =
-            this.api().columns().every( function () {
-                if (col_counter >1){
+                this.api().columns().every( function () {
+                    if (col_counter >1){
 
-                    var column = this;
-                    var select = $('<select style="width: 100% !important;"><option value="" selected >Show All: '+this.title()+'</option></select>')
-                        .appendTo( $(column.footer()).empty() )
-                        .on( 'change', function () {
-                            var val = $.fn.dataTable.util.escapeRegex(
-                                $(this).val()
-                            );
+                        var column = this;
+                        var select = $('<select style="width: 100% !important;"><option value="" selected >Show All: '+this.title()+'</option></select>')
+                            .appendTo( $(column.footer()).empty() )
+                            .on( 'change', function () {
+                                var val = $.fn.dataTable.util.escapeRegex(
+                                    $(this).val()
+                                );
 
-                            column
-                                .search( val ? '^'+val+'$' : '', true, false )
-                                .draw();
+                                column
+                                    .search( val ? '^'+val+'$' : '', true, false )
+                                    .draw();
+                            } );
+
+                        column.data().unique().sort().each( function ( d, j ) {
+                            select.append( '<option value="'+d+'">'+d+'</option>' )
                         } );
+                    }
 
-                    column.data().unique().sort().each( function ( d, j ) {
-                        select.append( '<option value="'+d+'">'+d+'</option>' )
-                    } );
-                }
-
-                col_counter = col_counter +1
-            } );
+                    col_counter = col_counter +1
+                } );
             var table = $('#hs_resource_table').DataTable();
             table.$('td').tooltip({
                 selector: '[data-toggle="tooltip"]',
@@ -144,7 +198,7 @@ $(document).ready(function () {
 
 
         "columns": [
-             {
+            {
                 "name":"legend",
                 "className": "legend",
                 "data": "legend"
@@ -227,28 +281,31 @@ function ajax_get_data(source, res_ids){
 
     console.log(source);
     $.ajax({
-            type: "GET",
+        type: "GET",
         crossDomain: true,
-            data: {
-                "res_ids":res_ids,
-                "source":source
-            },
-            url: 'parse_data',
-            success: function (json_data) {
-                if (json_data.login_status == false){
-                    var newWin = window.open("/oauth2/login/hydroshare/?next=/apps/time-series-script-manager/?src=cuahsi&WofUri=cuahsi-wdc-2018-05-16-71934608", '_self');
-                }
-                else{
-                    console.log(json_data)
-                    addDataToTable(json_data.json_waterml_data);
-                    addScriptToList(json_data.scripts)
-                }
-
-
-            },
-            error: function () {
-                console.log('error')
+        data: {
+            "res_ids":res_ids,
+            "source":source
+        },
+        url: 'parse_data',
+        success: function (json_data) {
+            if (json_data.login_status == false){
+                var newWin = window.open("/oauth2/login/hydroshare/?next=/apps/time-series-script-manager/?src=cuahsi&WofUri=cuahsi-wdc-2018-05-16-71934608", '_self');
             }
+            else{
+                console.log(json_data)
+                if (json_data.json_waterml_data != null){
+
+                    addDataToTable(json_data.json_waterml_data);
+                }
+                addScriptToList(json_data.scripts)
+            }
+
+
+        },
+        error: function () {
+            console.log('error')
+        }
     });
 
 }
@@ -287,8 +344,8 @@ function addDataToTable(data){
     }
     for (var i = 0, len = number; i < len;i++){
         $("#"+i).append($("<option></option>")
-            .text("Please Select a Script\n")
-            .attr("value", "None")
+                .text("Please Select a Script\n")
+                .attr("value", "None")
             // .attr("prev", "None")
         );
     }
@@ -318,13 +375,13 @@ function addScriptToList(script_list){
     );
 
     for (script in script_list){
-         $("#sel1").append($("<option></option>")
-             .text(script_list[script]['script_name'])
-             .attr("description", script_list[script]['script_des'])
-             .attr("variables", script_list[script]['variables'].join())
-             // .attr("script_res_num", script_list[script]['script_res_num'])
-             .attr("res_id", script_list[script]['script_res_id'])
-         )
+        $("#sel1").append($("<option></option>")
+            .text(script_list[script]['script_name'])
+            .attr("description", script_list[script]['script_des'])
+            .attr("variables", script_list[script]['variables'].join())
+            // .attr("script_res_num", script_list[script]['script_res_num'])
+            .attr("res_id", script_list[script]['script_res_id'])
+        )
 
     }
 }
@@ -355,12 +412,14 @@ function uploadToGoogle(){
     var res_ids_script=[$("#sel1 :selected").attr('res_id')];
     // Validation to ensure script selected and that correct number of variables have been assigned
     if (res_ids_script == ""){
-        alert("Please choose a script");
+        displayAlert("generalAlert",'danger',"Please choose a script");
+        // alert("Please choose a script");
         return
     }
     console.log(variable_names)
     if ($('#0 option').size()-1 != variable_names.length){
-         alert("Please select a time series for each listed variable");
+        displayAlert("generalAlert",'danger',"Please select a time series for each listed variable");
+        // alert("Please select a time series for each listed variable");
         return
     }
     table.page.len(table_len);
@@ -371,21 +430,21 @@ function uploadToGoogle(){
     if (isSignedGoogle){
         console.log ('Launching ajax');
         $.ajax({
-                type: "GET",
-                data: {
-                    "variable_res_ids":variable_res_ids,
-                    "variables_names":variable_names,
-                    "res_ids_script":res_ids_script,
-                    "variable_sub_num":variable_sub_num
-                },
-                url: '/apps/time-series-script-manager/upload_google',
-                success: function (json_data) {
-                    console.log(json_data);
-                    createFolder(json_data['data'],$("#sel1 :selected").text()+".ipynb")
-                },
-                error: function () {
-                    console.log('error')
-                }
+            type: "GET",
+            data: {
+                "variable_res_ids":variable_res_ids,
+                "variables_names":variable_names,
+                "res_ids_script":res_ids_script,
+                "variable_sub_num":variable_sub_num
+            },
+            url: '/apps/time-series-script-manager/upload_google',
+            success: function (json_data) {
+                console.log(json_data);
+                createFolder(json_data['data'],$("#sel1 :selected").text()+".ipynb")
+            },
+            error: function () {
+                console.log('error')
+            }
         });
     }
     // If not signed in open Google sign in window
@@ -417,9 +476,9 @@ function createFolder(data,file_name){
         if (fileExisting==null){
             console.log("Creating new folder");
             var fileMetadata = {
-            'name' : 'Time Series Script Manager',
-            'mimeType' : 'application/vnd.google-apps.folder',
-            // 'parents': [parentId]
+                'name' : 'Time Series Script Manager',
+                'mimeType' : 'application/vnd.google-apps.folder',
+                // 'parents': [parentId]
             };
             gapi.client.drive.files.create({
                 resource: fileMetadata,
@@ -488,52 +547,73 @@ function createFile(name,data,folderId,callback) {
 
 
 function viewScript(res_id){
-     $.ajax({
-            type: "GET",
-            data: {
-                "res_id":[res_id]
-            },
-            url: '/apps/time-series-script-manager/view_script',
-            success: function (json_data) {
-                console.log(json_data)
-                $('#view-script-modal').modal('show');
-                $("#scriptViewer").text(json_data['scripts'])
-                // $("#view-script-modal-label").text($("#sel1 :selected").text()+".ipynb")
-
-            },
-            error: function () {
-                console.log('error')
-            }
-        });
-}
-
-
-function uploadHydroShare(){
-    var csrf_token = getCookie('csrftoken');
-     var files = document.getElementById("input-files").files[0];
-     var form = new FormData();
-      form.append("title", $('#resTitle').val());
-      form.append("abstract", $('#resAbstract').val());
-      form.append("keywords", $('#resKeywords').val());
-      form.append("accessType", "testomg");
-      form.append("files", files);
-      console.log(form);
-   $.ajax({
-        type: "POST",
-        headers: {'X-CSRFToken': csrf_token},
-        dataType: 'json',
-        processData: false,
-        contentType: false,
-        data: form,
-        url: '/apps/time-series-script-manager/upload_hydroshare/',
+    $.ajax({
+        type: "GET",
+        data: {
+            "res_id":[res_id]
+        },
+        url: '/apps/time-series-script-manager/view_script',
         success: function (json_data) {
             console.log(json_data)
+            $('#view-script-modal').modal('show');
+            $("#scriptViewer").text(json_data['scripts'])
+            // $("#view-script-modal-label").text($("#sel1 :selected").text()+".ipynb")
 
         },
         error: function () {
             console.log('error')
         }
     });
+}
+
+
+function uploadHydroShare(){
+    var csrf_token = getCookie('csrftoken');
+    var files = document.getElementById("input-files").files[0];
+    if($('#resTitle').val().replace(/ /g,'').replace(/\n/g,'') ==''){
+        displayAlert("hsAlert",'danger',"Please enter a title");
+
+        // alert("Please enter a value for all fields")
+    }
+    else if($('#resAbstract').val().replace(/ /g,'').replace(/\n/g,'') ==''){
+        displayAlert("hsAlert",'danger',"Please enter a abstract");
+        // alert("Please enter a value for all fields")
+
+    }
+    else if($('#resKeywords').val().replace(/ /g,'').replace(/\n/g,'')==''){
+        displayAlert("hsAlert",'danger',"Please enter at least one keyword");
+        // alert("Please enter a value for all fields")
+    }
+    else{
+        var form = new FormData();
+        form.append("title", $('#resTitle').val());
+        form.append("abstract", $('#resAbstract').val());
+        form.append("keywords", $('#resKeywords').val());
+        form.append("accessType", "testomg");
+        form.append("files", files);
+        console.log(form);
+
+        $.ajax({
+            type: "POST",
+            headers: {'X-CSRFToken': csrf_token},
+            dataType: 'json',
+            processData: false,
+            contentType: false,
+            data: form,
+            url: '/apps/time-series-script-manager/upload_hydroshare/',
+            success: function (json_data) {
+                console.log(json_data);
+                var message = "Click <a href='https://www.hydroshare.org/resource/"+json_data.scripts+"/' target='_blank'>here</a> to view your resource"
+                displayAlert("hsAlert", "success", message)
+
+            },
+            error: function () {
+                console.log('error')
+            }
+        });
+    }
+
+
 }
 function getCookie(name) {
     var cookieValue = null;
@@ -561,7 +641,7 @@ function get_list_hs_res(){
         setTimeout(function(){
             console.log('resize')
             $(window).trigger("resize");
-            }, 500);
+        }, 500);
         $('#hs_resource_table_wrapper').hide();
         var csrf_token = getCookie('csrftoken');
         data_url ="/apps/time-series-script-manager/get_hydroshare_list/";
@@ -571,22 +651,23 @@ function get_list_hs_res(){
             dataType: 'json',
             //timeout: 5000,
             data: {'hs_res_ids': hs_res_ids,
-                    'source':"hydroshare"
+                'source':"hydroshare"
             },
             url: data_url,
             success: function (json) {
-                    var table_hs = $('#hs_resource_table').DataTable();//defines the primary table
-                    // console.log(row_tracker)
-                    json = json.data
-                    console.log(json)
-                    len = json.length
-                    for (series in json) {
-                        table_hs.row.add(json[series]).draw();
-                    }
-                    $('#loading_hs').hide();
-                    $('#hs_resource_table_wrapper').show();
-                    $(window).resize()
-                    hs_res_list_loaded = true
+                var table_hs = $('#hs_resource_table').DataTable();//defines the primary table
+                console.log(json)
+                // console.log(row_tracker)
+                json = json.data
+                console.log(json)
+                len = json.length
+                for (series in json) {
+                    table_hs.row.add(json[series]).draw();
+                }
+                $('#loading_hs').hide();
+                $('#hs_resource_table_wrapper').show();
+                $(window).resize()
+                hs_res_list_loaded = true
             },
             error: function () {
                 show_error("Error loading HydroShare Resources");
@@ -616,4 +697,31 @@ function getAddHS(){
     table.page.len(table_len);
     table.draw();
     ajax_get_data(['hydroshare'], addHSResources)
+}
+
+function refreshScripts(){
+    ajax_get_data(["None"], ["None"])
+}
+
+function displayAlert(id,type,message){
+    if(type =="success"){
+        var alertHTML = '<div class="alert alert-success alert-dismissible" role="alert">\n' +
+                    '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>\n' +
+                    '<strong>Success! </strong>'+message+"."+
+                    '</div>'
+
+    }
+    else if (type=="danger"){
+        var alertHTML ='<div class="alert alert-danger alert-dismissible" role="alert">\n' +
+                    '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>\n' +
+                    '<strong>Error! </strong>'+message+"!"+
+                    '</div>'
+    }
+    else{
+        var alertHTML ='<div class="alert alert-warning alert-dismissible" role="alert">\n' +
+                    '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>\n' +
+                    '<strong>Warning! </strong>'+message+"!"+
+                    '</div>'
+    }
+    $("#"+id).html(alertHTML)
 }
