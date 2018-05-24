@@ -25,7 +25,7 @@ $(document).ready(function () {
 
         for (var i = 0, len = number; i < len;i++){
             $("#"+i).html($("<option></option>")
-                .text("Please Select a Script\n")
+                .text("Please Select a Variable\n")
                 .attr("value", "None")
             );
         }
@@ -79,8 +79,8 @@ $(document).ready(function () {
                 var pattern = /(\w*)_values\s*=/ig;
                 var target_text = evt.target.result;
                 var counter = 0;
-                $("#resAbstract").text("Put a description of your Python Script or Jupyter Notebook here.\n\n#{%Application% Time Series Script Manager%}\n" +
-                    "#{%Title% "+file.name.split(".")[0]+"}\n" +
+                $("#resAbstract").text("Put a description of your Python Script or Jupyter Notebook here.\n\n#{%Application% Time Series Script Manager}\n" +
+                    // "#{%Title% "+file.name.split(".")[0]+"}\n" +
                     "#{%Description% Put a short description of your script here }\n" );
                 var counter = 0
                 do {

@@ -86,10 +86,10 @@ def upload_google(request):
                 values_case = re.search(name + '_values', file_data, re.IGNORECASE)
                 dates_case = re.search(name + '_dates', file_data, re.IGNORECASE)
 
-                file_data = re.sub(name+'_values\s*=(\[(\s*\w,\s*)*\s*\w*\s*])|('+name+'_values\s*=\s*None\s*)',
+                file_data = re.sub(name+'_values\s*=\s*(\[(\s*\w*[.]\w*\s*,*\s*)*\s*\w*\s*\])|('+name+'_values\s*=\s*None\s*)',
                                    values_case.group(0)+' = '+str(val_dates['values']), file_data, 1, re.IGNORECASE)
 
-                file_data = re.sub(name+'_dates\s*=(\[(\s*\w,\s*)*\s*\w*\s*])|('+name+'_dates\s*=\s*None\s*)',
+                file_data = re.sub(name+'_dates\s*=\s*(\[(\s*\w*[.]\w*\s*,*\s*)*\s*\w*\s*\])|('+name+'_dates\s*=\s*None\s*)',
                                    dates_case.group(0)+' = '+str(val_dates['dates']), file_data, 1, re.IGNORECASE)
 
 
@@ -108,6 +108,7 @@ def upload_google(request):
     # print type(script_location.encode('ascii','ignore'))
     # print type(resource_location)
     # utilities.create_hydro_resource(request, script_location.encode('ascii','ignore'),resource_location)
+    print file_data
     context = {'data': file_data
                }
     return JsonResponse(context)

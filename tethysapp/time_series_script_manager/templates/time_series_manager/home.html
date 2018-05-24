@@ -61,7 +61,7 @@
         <tr>
             <!--<th> <div style='text-align:center'><input class = 'checkbox' id ='master_chk' name ='master_chk' data-resid =" + res_id-->
                     <!--+ " type='checkbox' onClick ='series_visiblity_toggle(this.id,this.name);'checked = 'checked'></div></th>-->
-            <th>Please assign variable to script</th>
+            <th>Please assign time series to script variable</th>
             <th>Organization</th>
             <th>Site Name</th>
             <th>Variable</th>
@@ -153,7 +153,7 @@
 
                 <ul class="nav nav-tabs">
                   <li class="active"><a data-toggle="tab" href="#home">Instructions</a></li>
-                  <li><a data-toggle="tab" href="#menu1">Upload a Scripts</a></li>
+                  <li><a data-toggle="tab" href="#menu1">Upload a Jupyter Notebook</a></li>
                 </ul>
 
                 <div class="tab-content">
@@ -162,36 +162,50 @@
                     <h6>Follow these instructions exactly or your Notebook likely will not be compatible with this application</h6>
                     <ol>
                       <li>HydroShare Resource Requirements</li>
-                        To be properly discovered from HydroShare, the abstract needs to have certain tags:
-                        #{%Application% Time Series Script Manager%}
-                        This tag identifies that the Notebook is compatible with the Time Series Script Manager
-                        #{%Title% Time_Series_Comparsion}
-                        This tag identifies that the title on your Notebook.
-                        #{%Description% Put a short description of your script here }
-                        This tag gives a short description of your notebook to other users.
-                        #{%TimeSeries% Describe TimeSeries here}
+                        To be properly discovered from HydroShare, the abstract needs to have certain tags:<br/>
+                         <strong>#{%Application% Time Series Script Manager%} </strong><br />
+                        This tag identifies that the Notebook is compatible with the Time Series Script Manager<br/>
+                         <strong>#{%Description% Put a short description of your script here </strong>}<br/>
+                        This tag gives a short description of your notebook to other users.<br />
+                         <strong>#{%TimeSeries% Describe TimeSeries here}</strong><br/>
                         This last tag identifies a time series variable. At this time this app only supports variable input
                         of a time series. You can have as many time series as you want but the name in this tag should exactly match
                         the name of the your time series variable in the Notebook
                       <li>Notebook Requirements</li>
-                        Each variable listed in the abstract should have two matching components in the script. One component for the dates and
-                        the other component for the values. The dates will be output as unix time stamps. An example of the variable convention is shown
-                        below
-                      <li>Sample Notebook</li>
+                        Each variable listed in the abstract actually represents two variables in the script. To simplify the parsing
+                        each time series is split into two components, a values and a dates variable. The structure of this is as follows
+                        <strong>{variable_name}_values</strong> and <strong>{variable_name}_dates</strong>.
+                        The dates will be output as unix time stamps.
+                        The value of these variables can either be a list or "None." Please note that any data in these variables
+                        will be replaced. An example of the variable convention is shown
+                        below.<br/>
+                     Sample Notebook
                         <pre>import numpy as np
 import pandas as pd
 
-#Example format of variables
+#Example format of variables with data
 TimeSeries_dates = [1491264000.0, 1491609600.0, 1491696000.0]
 TimeSeries_values = [6, 8, 12]
 
+#Example format of variables without data
 observed_time_series_dates = None
 observed_time_series_values = None</pre>
+New Data
+<pre># Our new data
+TimeSeries_dates = [1495497600.0, 1495584000.0, 1495670400.0, 1495756800.0, 1495843200.0]
+TimeSeries_values = [6, 8, 12,100, 80]
+observed_time_series_dates = [1495497600.0, 1495584000.0, 1495670400.0, 1495756800.0, 1495843200.0]
+observed_time_series_values = [602, 878, 1312,5100, 1780]
+</pre>
+                        Sample Notebook with new values
+                        <pre>import numpy as np
+import pandas as pd
 
-                        <pre>
+TimeSeries_dates = [1495497600.0, 1495584000.0, 1495670400.0, 1495756800.0, 1495843200.0]
+TimeSeries_values = [6, 8, 12,100, 80]
 
-
-                        </pre>
+observed_time_series_dates = [1495497600.0, 1495584000.0, 1495670400.0, 1495756800.0, 1495843200.0]
+observed_time_series_values = [602, 878, 1312,5100, 1780]</pre>
 
                     </ol>
                   </div>
@@ -306,7 +320,7 @@ observed_time_series_values = None</pre>
               screen.
           </p>
             <h6>View Script (button only appears after selecting a script)</h6>
-            <strong>b=Button only appears after selecting a script</strong>
+            <strong>Button only appears after selecting a script</strong>
             <p>Clicking this button will allow you to view the raw Python code in each Notebook. Please note that any
             required variable input will be provided by the app.</p>
             <h6>Launch with Google Colaboratory</h6>

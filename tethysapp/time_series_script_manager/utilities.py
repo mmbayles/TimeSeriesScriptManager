@@ -20,7 +20,6 @@ import math
 import numpy
 import sqlite3
 from time import mktime as mktime
-
 from netCDF4 import Dataset
 
 
@@ -47,7 +46,7 @@ def get_list_hs_scripts(request):
     # for res in resources:
     #     print res
     # print "DDDDDDDDDDDDDDDDDDDDDDDDDdd"
-    resources = hs.getResourceList(full_text_search="#{%Application% Time Series Script Manager%}")
+    resources = hs.getResourceList(full_text_search="#{%Application% Time Series Script Manager}")
 
     # # resources = hs.resources(type ='TimeSeriesResource')
     # resources = hs.resources(type='CompositeResource')
@@ -65,7 +64,6 @@ def get_list_hs_scripts(request):
         # with open(script_location[0]) as f:
         #     file_data = f.read()
         #     print file_data
-
         abstract_txt = resource['abstract']
         # re_title = re.compile('\{\w+\}')
         # re_title = re_title.search(abstract_txt)
@@ -77,12 +75,13 @@ def get_list_hs_scripts(request):
         title = None
         description = None
         variables = []
+        title = resource['resource_title']
         for para in script_para:
             if 'Title'in para[0]:
-                title = para[1].strip()
+                continue
             elif 'Description' in para[0]:
                 description = para[1].strip()
-            elif 'Time Series Script Manager'in para[0]:
+            elif 'Application'in para[0]:
                 continue
             else:
                 variables.append([para[0].strip(), para[1].strip()])
@@ -126,8 +125,6 @@ def unzip_waterml(request, res_id, src, subseries=None):
                     elif '.refts.json' in file:
                         file_type = '.json.refts'
                         file_number = parse_ts_layer(path)
-                        print 'refts'
-                        print file_number
                     elif '.sqlite' in file:
                         file_path = path
                         file_type = 'sqlite'
@@ -212,7 +209,6 @@ def unzip_waterml(request, res_id, src, subseries=None):
                     data_for_chart.append(chart_data[0])
                     error = chart_data[1]
         elif file_type == 'sqlite':
-            print "sqliteeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
             conn = sqlite3.connect(file_path)
             c = conn.cursor()
             c.execute('SELECT Results.ResultID FROM Results')
@@ -426,7 +422,6 @@ def upload_data_hydroshare(request, file_data, title, abstract, keywords):
 
     with open(file_path, 'wb') as f:
         f.write(file_text)
-        print file_text
     hs = getOAuthHS(request)
     abstract = abstract
     title = title
@@ -447,7 +442,6 @@ def upload_data_hydroshare(request, file_data, title, abstract, keywords):
     extra_metadata = '{"Time Series Script Manager": "True"}'
     resource_id = hs.createResource(rtype, title, resource_filename=file_data.name, resource_file=file_path, keywords=keywords, abstract=abstract,
                                     extra_metadata=extra_metadata)
-    print resource_id
     return resource_id
     # return "d"
 
@@ -538,9 +532,7 @@ def parse_odm2(file_path, result_num,res_id):
             dates.append(n)
 
     error = ''
-    print "!!!!!!!!!!!!!!!!!!!!!!!!"
-    print organizations[0]
-    print organizations[0][1]
+
     conn.close()
     return [{
         'organization': organizations[0][1],
